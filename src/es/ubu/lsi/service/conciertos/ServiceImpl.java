@@ -53,7 +53,61 @@ public class ServiceImpl extends PersistenceService implements Service {
      */
     @Override
     public void comprar(Date fecha, String nif, int grupo, int tickets) throws PersistenceException {
+        try {
+        	em = this.createSession();
+        	beginTransaction(em);
+        	
+        	clienteDAO = new DAOCliente<Cliente, String>(em);
+        	compraDAO = new DAOCompra<Compra, Integer>(em);
+        	conciertoDAO = new DAOConcierto<Concierto, Integer>(em);
+        	grupoDAO = new DAOGrupo<Grupo, Integer>(em);
+        	
+        	/* Comprobaciones de existencia de cliente, grupo y concierto */
+        	
+        	Cliente client = clienteDAO.findById(nif);
+        	if (client == null) throw new IncidentException(IncidentError.NOT_EXIST_CLIENT);
+        	
+        	Grupo group = grupoDAO.findById(grupo);
+        	if (group == null) throw new IncidentException(IncidentError.NOT_EXIST_MUSIC_GROUP);
+        	
+        	List<Concierto> concert = conciertoDAO.findByFechaAndGrupo(fecha, grupo);
+        	if (concert.size() == 0) throw new IncidentException(IncidentError.NOT_EXIST_CONCERT);
+        	
+        	/* Comprobacion de disponibilidad de tickets */
+        	int availableTickets = concert.get(0).getTickets();
+        	if (availableTickets < tickets) throw new IncidentException(IncidentError.NOT_AVAILABLE_TICKETS);
+        	
+        	/* Actualizar cambio en tickets */
+        	conciertoDAO.updateTickets(availableTickets - tickets, concert.get(0));
+        	
+        	/* Insertar la compra */
+        	Compra purchase = new Compra();
+        	int purchaseId = compraDAO.findNextId();
+        	
+        	compraDAO.insertCompra(purchaseId, client, concert.get(0), tickets, purchase);
+        	
+        	em.persist(purchase);
+        	commitTransaction(em);
+        	
+        } catch (Exception e) {
 
+            logger.error("Exception");
+            
+            if (em.getTransaction().isActive()) rollbackTransaction(em); // Si la transacción está activa, hacer rollback
+
+            logger.error(e.getLocalizedMessage());
+            
+            // Relanzado de excepciones
+            if (e instanceof IncidentException) {
+                throw (IncidentException) e;
+            } else {
+                throw e;
+            }
+            
+        } finally {
+            // Cerrar EntityManager en finally para garantizar su cierre adecuado
+            em.close();
+        }
     }
 
 
