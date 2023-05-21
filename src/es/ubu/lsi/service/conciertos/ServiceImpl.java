@@ -119,7 +119,43 @@ public class ServiceImpl extends PersistenceService implements Service {
      */
     @Override
     public void desactivar(int grupo) throws PersistenceException {
+    	try {
+    		em = this.createSession();
+        	beginTransaction(em);
+        	
+        	clienteDAO = new DAOCliente<Cliente, String>(em);
+        	compraDAO = new DAOCompra<Compra, Integer>(em);
+        	conciertoDAO = new DAOConcierto<Concierto, Integer>(em);
+        	grupoDAO = new DAOGrupo<Grupo, Integer>(em);
+        	
+        	/* Comprobacion de existencia de grupo */
+        	
+        	Grupo group = grupoDAO.findById(grupo);
+        	if (group == null) throw new IncidentException(IncidentError.NOT_EXIST_MUSIC_GROUP);
+        	
+        	grupoDAO.desactivarGrupo(group);
+        	
+        	commitTransaction(em);
 
+    	} catch (Exception e) {
+
+            logger.error("Exception");
+            
+            if (em.getTransaction().isActive()) rollbackTransaction(em); // Si la transacción está activa, hacer rollback
+
+            logger.error(e.getLocalizedMessage());
+            
+            // Relanzado de excepciones
+            if (e instanceof IncidentException) {
+                throw (IncidentException) e;
+            } else {
+                throw e;
+            }
+            
+        } finally {
+            // Cerrar EntityManager en finally para garantizar su cierre adecuado
+            em.close();
+        }
     }
 
     /**
