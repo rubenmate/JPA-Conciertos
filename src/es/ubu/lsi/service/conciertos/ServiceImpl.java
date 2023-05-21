@@ -130,7 +130,28 @@ public class ServiceImpl extends PersistenceService implements Service {
      */
     @Override
     public List<Grupo> consultarGrupos() throws PersistenceException {
-        return null;
+        try {
+        	em = this.createSession();
+        	beginTransaction(em);
+        	
+        	DAOGrupo<Grupo, Integer> grupoDAO = new DAOGrupo<Grupo, Integer>(em);
+        	
+        	List<Grupo> groupList = grupoDAO.consultar("gruposConciertosComprasYClientes", "javax.persistence.fetchgraph");
+        	
+        	commitTransaction(em);
+        	
+        	return groupList;
+        } catch (Exception e) {
+
+            logger.error("Exception");
+            
+            if (em.getTransaction().isActive()) rollbackTransaction(em); // Si la transacción está activa, hacer rollback
+        	
+            throw e;
+        } finally {
+            // Cerrar EntityManager en finally para garantizar su cierre adecuado
+            em.close();
+        }
     }
 
 }
